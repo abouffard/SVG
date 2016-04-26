@@ -1,23 +1,19 @@
 using System;
-using System.ComponentModel;
 using System.Collections.Generic;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Xml;
+using System.ComponentModel;
 using System.Drawing;
 using System.Globalization;
+using System.Linq;
 
 namespace Svg
 {
     internal class SvgPaintServerFactory : TypeConverter
     {
         private static readonly SvgColourConverter _colourConverter;
-        private static readonly Regex _urlRefPattern;
 
         static SvgPaintServerFactory()
         {
             _colourConverter = new SvgColourConverter();
-            _urlRefPattern = new Regex(@"url\((#[^)]+)\)");
         }
 
         public static SvgPaintServer Create(string value, SvgDocument document)
@@ -27,29 +23,85 @@ namespace Svg
             {
                 return SvgColourServer.NotSet;
             }
-            else if (value.IndexOf("url(#") > -1)
+            else if (value == "inherit")
             {
-                Match match = _urlRefPattern.Match(value);
-                Uri id = new Uri(match.Groups[1].Value, UriKind.Relative);
-                return (SvgPaintServer)document.IdManager.GetElementById(id);
+                return SvgColourServer.Inherit;
             }
-            // If referenced to to a different (linear or radial) gradient
-            else if (document.IdManager.GetElementById(value) != null && document.IdManager.GetElementById(value).GetType().BaseType == typeof(SvgGradientServer))
+            else if (value == "currentColor")
             {
-                return (SvgPaintServer)document.IdManager.GetElementById(value);
+                return new SvgDeferredPaintServer(document, value);
             }
-            else // Otherwise try and parse as colour
+            else
             {
-                return new SvgColourServer((Color)_colourConverter.ConvertFrom(value.Trim()));
-            }
+                var servers = new List<SvgPaintServer>();
+                
+                while (!string.IsNullOrEmpty(value))
+                {
+                    if (value.StartsWith("url(#"))
+                    {
+                        var leftParen = value.IndexOf(')', 5);
+                        Uri id = new Uri(value.Substring(5, leftParen - 5), UriKind.Relative);
+                        value = value.Substring(leftParen + 1).Trim();
+                        servers.Add((SvgPaintServer)document.IdManager.GetElementById(id));
+                    }
+                    // If referenced to to a different (linear or radial) gradient
+                    else if (document.IdManager.GetElementById(value) != null && document.IdManager.GetElementById(value).GetType().BaseType == typeof(SvgGradientServer))
+                    {
+                        return (SvgPaintServer)document.IdManager.GetElementById(value);
+                    }
+                    else if (value.StartsWith("#")) // Otherwise try and parse as colour
+                    {
+                        switch(CountHexDigits(value, 1))
+                        {
+                            case 3:
+                                servers.Add(new SvgColourServer((Color)_colourConverter.ConvertFrom(value.Substring(0, 4))));
+                                value = value.Substring(4).Trim();
+                                break;
+                            case 6:
+                                servers.Add(new SvgColourServer((Color)_colourConverter.ConvertFrom(value.Substring(0, 7))));
+                                value = value.Substring(7).Trim();
+                                break;
+                            default:
+                                return new SvgDeferredPaintServer(document, value);
+                        }
+                    }
+                    else
+                    {
+                        return new SvgColourServer((Color)_colourConverter.ConvertFrom(value.Trim()));
+                    }
+                }
+
+                if (servers.Count > 1)
+                {
+                    return new SvgFallbackPaintServer(servers[0], servers.Skip(1));
+                }
+                return servers[0];
+            } 
+                
+                
         }
 
+        private static int CountHexDigits(string value, int start)
+        {
+            int i = Math.Max(start, 0);
+            int count = 0;
+            while (i < value.Length && 
+                   ((value[i] >= '0' && value[i] <= '9') ||
+                    (value[i] >= 'a' && value[i] <= 'f') ||
+                    (value[i] >= 'A' && value[i] <= 'F')))
+            {
+                count++;
+                i++;
+            }
+            return count;
+        }
+        
         public override object ConvertFrom(ITypeDescriptorContext context, System.Globalization.CultureInfo culture, object value)
         {
             if (value is string)
             {
             	var s = (string) value;
-            	if(String.Equals( s.Trim(), "none", StringComparison.OrdinalIgnoreCase))
+                if (String.Equals(s.Trim(), "none", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(s) || s.Trim().Length < 1)
             		return SvgPaintServer.None;
             	else
                 	return SvgPaintServerFactory.Create(s, (SvgDocument)context);
@@ -83,13 +135,20 @@ namespace Svg
             if (destinationType == typeof(string))
             {
                 //check for none
-                if (value == SvgPaintServer.None) return "none";
+                if (value == SvgPaintServer.None || value == SvgColourServer.None) return "none";
+                if (value == SvgColourServer.Inherit) return "inherit";
+                if (value == SvgColourServer.NotSet) return "";
 
                 var colourServer = value as SvgColourServer;
-
                 if (colourServer != null)
                 {
                     return new SvgColourConverter().ConvertTo(colourServer.Colour, typeof(string));
+                }
+
+                var deferred = value as SvgDeferredPaintServer;
+                if (deferred != null)
+                {
+                    return deferred.ToString();
                 }
 
                 if (value != null)

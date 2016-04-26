@@ -44,7 +44,7 @@
             this.open});
             this.toolStrip1.Location = new System.Drawing.Point(0, 0);
             this.toolStrip1.Name = "toolStrip1";
-            this.toolStrip1.Size = new System.Drawing.Size(527, 25);
+            this.toolStrip1.Size = new System.Drawing.Size(1060, 25);
             this.toolStrip1.TabIndex = 0;
             this.toolStrip1.Text = "toolStrip1";
             // 
@@ -59,10 +59,12 @@
             // 
             // svgImage
             // 
-            this.svgImage.Dock = System.Windows.Forms.DockStyle.Left;
+            this.svgImage.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.svgImage.Location = new System.Drawing.Point(0, 25);
             this.svgImage.Name = "svgImage";
-            this.svgImage.Size = new System.Drawing.Size(285, 449);
+            this.svgImage.Size = new System.Drawing.Size(735, 449);
             this.svgImage.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage;
             this.svgImage.TabIndex = 1;
             this.svgImage.TabStop = false;
@@ -73,11 +75,13 @@
             // 
             // textBox1
             // 
-            this.textBox1.Location = new System.Drawing.Point(291, 28);
+            this.textBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBox1.Location = new System.Drawing.Point(741, 25);
             this.textBox1.MaxLength = 327670;
             this.textBox1.Multiline = true;
             this.textBox1.Name = "textBox1";
-            this.textBox1.Size = new System.Drawing.Size(135, 79);
+            this.textBox1.Size = new System.Drawing.Size(307, 446);
             this.textBox1.TabIndex = 2;
             this.textBox1.TextChanged += new System.EventHandler(this.textBox1_TextChanged);
             // 
@@ -85,7 +89,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(527, 474);
+            this.ClientSize = new System.Drawing.Size(1060, 474);
             this.Controls.Add(this.textBox1);
             this.Controls.Add(this.svgImage);
             this.Controls.Add(this.toolStrip1);

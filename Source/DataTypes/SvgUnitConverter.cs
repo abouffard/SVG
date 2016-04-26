@@ -34,7 +34,8 @@ namespace Svg
 
             for (int i = 0; i < unit.Length; i++)
             {
-                if (char.IsLetter(unit[i]) || unit[i] == '%')
+                // If the character is a percent sign or a letter which is not an exponent 'e'
+                if (unit[i] == '%' || (char.IsLetter(unit[i]) && !((unit[i] == 'e' || unit[i] == 'E') && i < unit.Length - 1 && !char.IsLetter(unit[i + 1]))))
                 {
                     identifierIndex = i;
                     break;
@@ -67,6 +68,8 @@ namespace Svg
                     return new SvgUnit(SvgUnitType.Percentage, val);
                 case "em":
                     return new SvgUnit(SvgUnitType.Em, val);
+                case "ex":
+                    return new SvgUnit(SvgUnitType.Ex, val);
                 default:
                     throw new FormatException("Unit is in an invalid format '" + unit + "'.");
             }

@@ -11,9 +11,14 @@ namespace Svg
     	/// <summary>
         /// An unspecified <see cref="SvgPaintServer"/>.
         /// </summary>
-        public static readonly SvgPaintServer NotSet = new SvgColourServer();
-    	
-        public SvgColourServer() : this(Color.Black)
+        public static readonly SvgPaintServer NotSet = new SvgColourServer(System.Drawing.Color.Black);
+        /// <summary>
+        /// A <see cref="SvgPaintServer"/> that should inherit from its parent.
+        /// </summary>
+        public static readonly SvgPaintServer Inherit = new SvgColourServer(System.Drawing.Color.Black);
+
+        public SvgColourServer()
+            : this(System.Drawing.Color.Black)
         {
         }
 
@@ -30,13 +35,13 @@ namespace Svg
             set { this._colour = value; }
         }
 
-        public override Brush GetBrush(SvgVisualElement styleOwner, float opacity)
+        public override Brush GetBrush(SvgVisualElement styleOwner, ISvgRenderer renderer, float opacity, bool forStroke = false)
         {
             //is none?
-            if (this == SvgPaintServer.None) return new SolidBrush(Color.Transparent);
-
+            if (this == SvgPaintServer.None) return new SolidBrush(System.Drawing.Color.Transparent);
+                
             int alpha = (int)((opacity * (this.Colour.A/255.0f) ) * 255);
-            Color colour = Color.FromArgb(alpha, this.Colour);
+            Color colour = System.Drawing.Color.FromArgb(alpha, this.Colour);
 
             return new SolidBrush(colour);
         }
@@ -80,6 +85,13 @@ namespace Svg
             var objColor = obj as SvgColourServer;
             if (objColor == null)
                 return false;
+
+            if ((this == SvgPaintServer.None && obj != SvgPaintServer.None) ||
+                (this != SvgPaintServer.None && obj == SvgPaintServer.None) ||
+                (this == SvgColourServer.NotSet && obj != SvgColourServer.NotSet) ||
+                (this != SvgColourServer.NotSet && obj == SvgColourServer.NotSet) ||
+                (this == SvgColourServer.Inherit && obj != SvgColourServer.Inherit) ||
+                (this != SvgColourServer.Inherit && obj == SvgColourServer.Inherit)) return false;
 
             return this.GetHashCode() == objColor.GetHashCode();
         }

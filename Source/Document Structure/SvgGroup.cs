@@ -1,11 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Xml;
-using System.Text;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Linq;
-using Svg.Transforms;
 
 namespace Svg
 {
@@ -15,25 +9,13 @@ namespace Svg
     [SvgElement("g")]
     public class SvgGroup : SvgVisualElement
     {
-        public SvgGroup()
-        {
-        }
-
         /// <summary>
         /// Gets the <see cref="GraphicsPath"/> for this element.
         /// </summary>
         /// <value></value>
-        public override System.Drawing.Drawing2D.GraphicsPath Path
+        public override System.Drawing.Drawing2D.GraphicsPath Path(ISvgRenderer renderer)
         {
-            get 
-            { 
-            	//var path = new GraphicsPath();
-            	//AddPaths(this, path);
-  
-            	return GetPaths(this);
-            }
-            protected set
-            { }
+            return GetPaths(this, renderer);
         }
 
         /// <summary>
@@ -44,41 +26,45 @@ namespace Svg
         {
             get 
             { 
-            	var r = new RectangleF();
-            	foreach(var c in this.Children)
-            	{
-            		if(c is SvgVisualElement)
-            			r = RectangleF.Union(r, ((SvgVisualElement)c).Bounds);
-            	}
-				return r;         	
+                var r = new RectangleF();
+                foreach(var c in this.Children)
+                {
+                    if (c is SvgVisualElement)
+                    {
+                        // First it should check if rectangle is empty or it will return the wrong Bounds.
+                        // This is because when the Rectangle is Empty, the Union method adds as if the first values where X=0, Y=0
+                        if (r.IsEmpty)
+                        {
+                            r = ((SvgVisualElement)c).Bounds;
+                        }
+                        else
+                        {
+                            var childBounds = ((SvgVisualElement)c).Bounds;
+                            if (!childBounds.IsEmpty)
+                            {
+                                r = RectangleF.Union(r, childBounds);
+                            }
+                        }
+                    }
+                }
+                
+                return r;
             }
         }
 
-        /// <summary>
-        /// Renders the <see cref="SvgElement"/> and contents to the specified <see cref="Graphics"/> object.
-        /// </summary>
-        /// <param name="graphics">The <see cref="Graphics"/> object to render to.</param>
-        protected override void Render(SvgRenderer renderer)
+        protected override bool Renderable { get { return false; } }
+                
+        public override SvgElement DeepCopy()
         {
-            this.PushTransforms(renderer);
-            this.SetClip(renderer);
-            base.RenderChildren(renderer);
-            this.ResetClip(renderer);
-            this.PopTransforms(renderer);
+            return DeepCopy<SvgGroup>();
         }
 
-		
-		public override SvgElement DeepCopy()
-		{
-			return DeepCopy<SvgGroup>();
-		}
-
-		public override SvgElement DeepCopy<T>()
-		{
-			var newObj = base.DeepCopy<T>() as SvgGroup;
-			if (this.Fill != null)
-				newObj.Fill = this.Fill.DeepCopy() as SvgPaintServer;
-			return newObj;
-		}
+        public override SvgElement DeepCopy<T>()
+        {
+            var newObj = base.DeepCopy<T>() as SvgGroup;
+            if (this.Fill != null)
+                newObj.Fill = this.Fill.DeepCopy() as SvgPaintServer;
+            return newObj;
+        }
     }
 }

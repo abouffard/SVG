@@ -63,20 +63,41 @@ namespace Svg
         /// <returns>The attribute value if available; otherwise the ancestors value for the same attribute; otherwise the default value of <typeparamref name="TAttributeType"/>.</returns>
         public TAttributeType GetInheritedAttribute<TAttributeType>(string attributeName)
         {
-            if (this.ContainsKey(attributeName) /*&& base[attributeName] != null*/)
+            if (this.ContainsKey(attributeName) && !IsInheritValue(base[attributeName]))
             {
-                return (TAttributeType)base[attributeName];
+                var result = (TAttributeType)base[attributeName];
+                var deferred = result as SvgDeferredPaintServer;
+                if (deferred != null) deferred.EnsureServer(_owner);
+                return result;
             }
 
             if (this._owner.Parent != null)
             {
-                if (this._owner.Parent.Attributes[attributeName] != null)
+                var parentAttribute = this._owner.Parent.Attributes[attributeName];
+                if (parentAttribute != null)
                 {
-                    return (TAttributeType)this._owner.Parent.Attributes[attributeName];
+                    return (TAttributeType)parentAttribute;
                 }
             }
 
             return default(TAttributeType);
+        }
+
+        private bool IsInheritValue(object value)
+        {
+            return (value == null ||
+                    (value is SvgFontWeight && (SvgFontWeight)value == SvgFontWeight.Inherit) ||
+                    (value is SvgTextAnchor && (SvgTextAnchor)value == SvgTextAnchor.Inherit) ||
+                    (value is SvgFontVariant && (SvgFontVariant)value == SvgFontVariant.Inherit) || 
+                    (value is SvgTextDecoration && (SvgTextDecoration)value == SvgTextDecoration.Inherit) ||
+                    (value is XmlSpaceHandling && (XmlSpaceHandling)value == XmlSpaceHandling.inherit) ||
+                    (value is SvgOverflow && (SvgOverflow)value == SvgOverflow.Inherit) ||
+                    (value is SvgColourServer && (SvgColourServer)value == SvgColourServer.Inherit) ||
+                    (value is SvgShapeRendering && (SvgShapeRendering)value == SvgShapeRendering.Inherit) ||
+                    (value is SvgTextRendering && (SvgTextRendering)value == SvgTextRendering.Inherit) ||
+                    (value is SvgImageRendering && (SvgImageRendering)value == SvgImageRendering.Inherit) ||
+                    (value is string && ((string)value).ToLower() == "inherit")
+                   );
         }
 
         /// <summary>
@@ -91,9 +112,12 @@ namespace Svg
             {
             	if(base.ContainsKey(attributeName))
             	{
-	            	var oldVal = base[attributeName];
-	            	base[attributeName] = value;
-	            	if(oldVal != value) OnAttributeChanged(attributeName, value);
+	            	var oldVal = base[attributeName];	            	
+	            	if(TryUnboxedCheck(oldVal, value))
+	            	{
+	            		base[attributeName] = value;
+	            		OnAttributeChanged(attributeName, value);
+	            	}
             	}
             	else
             	{
@@ -101,6 +125,39 @@ namespace Svg
 	            	OnAttributeChanged(attributeName, value);
             	}
             }
+        }
+        
+        private bool TryUnboxedCheck(object a, object b)
+        {
+        	if(IsValueType(a))
+        	{
+        		if(a is SvgUnit)
+        			return UnboxAndCheck<SvgUnit>(a, b);
+        		else if(a is bool)
+        			return UnboxAndCheck<bool>(a, b);
+        		else if(a is int)
+        			return UnboxAndCheck<int>(a, b);
+        		else if(a is float)
+        			return UnboxAndCheck<float>(a, b);
+        		else if(a is SvgViewBox)
+        			return UnboxAndCheck<SvgViewBox>(a, b);
+        		else
+        			return true;
+        	}
+        	else
+        	{
+        		return a != b;
+        	}
+        }
+        
+        private bool UnboxAndCheck<T>(object a, object b)
+        {
+        	return !((T)a).Equals((T)b);
+        }
+        
+        private bool IsValueType(object obj) 
+        {
+        	return obj != null && obj.GetType().IsValueType;
         }
         
         /// <summary>

@@ -13,9 +13,7 @@ namespace Svg
     public class SvgGradientStop : SvgElement
     {
         private SvgUnit _offset;
-        private Color _colour;
-        private float _opacity;
-
+        
         /// <summary>
         /// Gets or sets the offset, i.e. where the stop begins from the beginning, of the gradient stop.
         /// </summary>
@@ -25,7 +23,32 @@ namespace Svg
             get { return this._offset; }
             set
             {
-                this._offset = value.ToPercentage();
+                SvgUnit unit = value;
+
+                if (value.Type == SvgUnitType.Percentage)
+                {
+                    if (value.Value > 100)
+                    {
+                        unit = new SvgUnit(value.Type, 100);
+                    }
+                    else if (value.Value < 0)
+                    {
+                        unit = new SvgUnit(value.Type, 0);
+                    }
+                }
+                else if (value.Type == SvgUnitType.User)
+                {
+                    if (value.Value > 1)
+                    {
+                        unit = new SvgUnit(value.Type, 1);
+                    }
+                    else if (value.Value < 0)
+                    {
+                        unit = new SvgUnit(value.Type, 0);
+                    }
+                }
+
+                this._offset = unit.ToPercentage();
             }
         }
 
@@ -33,21 +56,26 @@ namespace Svg
         /// Gets or sets the colour of the gradient stop.
         /// </summary>
         [SvgAttribute("stop-color")]
-        [TypeConverter(typeof(SvgColourConverter))]
-        public Color Colour
+        [TypeConverter(typeof(SvgPaintServerFactory))]
+        public override SvgPaintServer StopColor
         {
-            get { return this._colour; }
-            set { this._colour = value; }
+            get 
+            {
+                var direct = this.Attributes.GetAttribute<SvgPaintServer>("stop-color", SvgColourServer.NotSet);
+                if (direct == SvgColourServer.Inherit) return this.Attributes["stop-color"] as SvgPaintServer ?? SvgColourServer.NotSet;
+                return direct;
+            }
+            set { this.Attributes["stop-color"] = value; }
         }
 
         /// <summary>
         /// Gets or sets the opacity of the gradient stop (0-1).
         /// </summary>
         [SvgAttribute("stop-opacity")]
-        public float Opacity
+        public override float Opacity
         {
-            get { return this._opacity; }
-            set { this._opacity = value; }
+            get { return (this.Attributes["stop-opacity"] == null) ? 1.0f : (float)this.Attributes["stop-opacity"]; }
+            set { this.Attributes["stop-opacity"] = FixOpacityValue(value); }
         }
 
         /// <summary>
@@ -56,8 +84,6 @@ namespace Svg
         public SvgGradientStop()
         {
             this._offset = new SvgUnit(0.0f);
-            this._colour = Color.Transparent;
-            this._opacity = 1.0f;
         }
 
         /// <summary>
@@ -68,10 +94,14 @@ namespace Svg
         public SvgGradientStop(SvgUnit offset, Color colour)
         {
             this._offset = offset;
-            this._colour = colour;
-            this._opacity = 1.0f;
         }
 
+        public Color GetColor(SvgElement parent)
+        {
+            var core = SvgDeferredPaintServer.TryGet<SvgColourServer>(this.StopColor, parent);
+            if (core == null) throw new InvalidOperationException("Invalid paint server for gradient stop detected.");
+            return core.Colour;
+        }
 
 		public override SvgElement DeepCopy()
 		{
@@ -82,9 +112,6 @@ namespace Svg
 		{
 			var newObj = base.DeepCopy<T>() as SvgGradientStop;
 			newObj.Offset = this.Offset;
-			newObj.Colour = this.Colour;
-			newObj.Opacity = this.Opacity;
-
 			return newObj;
 		}
     }

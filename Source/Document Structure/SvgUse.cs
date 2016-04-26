@@ -13,7 +13,7 @@ namespace Svg
     {
         private Uri _referencedElement;
 
-        [SvgAttribute("xlink:href")]
+        [SvgAttribute("href", SvgAttributeAttribute.XLinkNamespace)]
         public virtual Uri ReferencedElement
         {
             get { return this._referencedElement; }
@@ -35,13 +35,15 @@ namespace Svg
         }
 
         /// <summary>
-        /// Applies the required transforms to <see cref="SvgRenderer"/>.
+        /// Applies the required transforms to <see cref="ISvgRenderer"/>.
         /// </summary>
-        /// <param name="renderer">The <see cref="SvgRenderer"/> to be transformed.</param>
-        protected internal override void PushTransforms(SvgRenderer renderer)
+        /// <param name="renderer">The <see cref="ISvgRenderer"/> to be transformed.</param>
+        protected internal override bool PushTransforms(ISvgRenderer renderer)
         {
-            base.PushTransforms(renderer);
-            renderer.TranslateTransform(this.X.ToDeviceValue(this), this.Y.ToDeviceValue(this, true));
+            if (!base.PushTransforms(renderer)) return false;
+            renderer.TranslateTransform(this.X.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this),
+                                        this.Y.ToDeviceValue(renderer, UnitRenderingType.Vertical, this));
+            return true;
         }
 
         /// <summary>
@@ -49,17 +51,14 @@ namespace Svg
         /// </summary>
         public SvgUse()
         {
+            this.X = 0;
+            this.Y = 0;
         }
 
-        public override System.Drawing.Drawing2D.GraphicsPath Path
+        public override System.Drawing.Drawing2D.GraphicsPath Path(ISvgRenderer renderer)
         {
-            get
-            {
-                SvgVisualElement element = (SvgVisualElement)this.OwnerDocument.IdManager.GetElementById(this.ReferencedElement);
-                return (element != null) ? element.Path : null;
-            }
-            protected set
-            { }
+            SvgVisualElement element = (SvgVisualElement)this.OwnerDocument.IdManager.GetElementById(this.ReferencedElement);
+            return (element != null) ? element.Path(renderer) : null;
         }
 
         public override System.Drawing.RectangleF Bounds
@@ -67,47 +66,43 @@ namespace Svg
             get { return new System.Drawing.RectangleF(); }
         }
 
-//        public override SvgElementCollection Children
-//        {
-//            get
-//            {
-//                SvgElement element = this.OwnerDocument.IdManager.GetElementById(this.ReferencedElement);
-//                SvgElementCollection elements = new SvgElementCollection(this, true);
-//                elements.Add(element);
-//                return elements;
-//            }
-//        }
+        protected override bool Renderable { get { return false; } }
 
-        protected override void Render(SvgRenderer renderer)
+        protected override void Render(ISvgRenderer renderer)
         {
-            this.PushTransforms(renderer);
+            if (this.Visible && this.Displayable && this.PushTransforms(renderer))
+            {
+                this.SetClip(renderer);
 
-            SvgVisualElement element = (SvgVisualElement)this.OwnerDocument.IdManager.GetElementById(this.ReferencedElement);
-            // For the time of rendering we want the referenced element to inherit
-            // this elements transforms
-            SvgElement parent = element._parent;
-            element._parent = this;
-            element.RenderElement(renderer);
-            element._parent = parent;
+                var element = this.OwnerDocument.IdManager.GetElementById(this.ReferencedElement) as SvgVisualElement;
+                if (element != null)
+                {
+                    var origParent = element.Parent;
+                    element._parent = this;
+                    element.RenderElement(renderer);
+                    element._parent = origParent;
+                }
 
-            this.PopTransforms(renderer);
+                this.ResetClip(renderer);
+                this.PopTransforms(renderer);
+            }
         }
 
 
-		public override SvgElement DeepCopy()
-		{
-			return DeepCopy<SvgUse>();
-		}
+        public override SvgElement DeepCopy()
+        {
+            return DeepCopy<SvgUse>();
+        }
 
-		public override SvgElement DeepCopy<T>()
-		{
-			var newObj = base.DeepCopy<T>() as SvgUse;
-			newObj.ReferencedElement = this.ReferencedElement;
-			newObj.X = this.X;
-			newObj.Y = this.Y;
+        public override SvgElement DeepCopy<T>()
+        {
+            var newObj = base.DeepCopy<T>() as SvgUse;
+            newObj.ReferencedElement = this.ReferencedElement;
+            newObj.X = this.X;
+            newObj.Y = this.Y;
 
-			return newObj;
-		}
+            return newObj;
+        }
 
     }
 }

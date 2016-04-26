@@ -6,7 +6,7 @@ using Svg.Transforms;
 namespace Svg
 {
     /// <summary>
-    /// Represents and SVG rectangle that could also have reounded edges.
+    /// Represents an SVG rectangle that could also have rounded edges.
     /// </summary>
     [SvgElement("rect")]
     public class SvgRectangle : SvgVisualElement
@@ -46,13 +46,16 @@ namespace Svg
         [SvgAttribute("x")]
         public SvgUnit X
         {
-            get { return _x; }
-            set
-            {
-                _x = value;
-                OnAttributeChanged(new AttributeEventArgs{ Attribute = "x", Value = value });
-                IsPathDirty = true;
-            }
+        	get { return _x; }
+        	set
+        	{
+        		if(_x != value)
+        		{
+        			_x = value;
+        			OnAttributeChanged(new AttributeEventArgs{ Attribute = "x", Value = value });
+        			IsPathDirty = true;
+        		}
+        	}
         }
 
         /// <summary>
@@ -61,13 +64,16 @@ namespace Svg
         [SvgAttribute("y")]
         public SvgUnit Y
         {
-            get { return _y; }
-            set
-            {
-                _y = value;
-                OnAttributeChanged(new AttributeEventArgs{ Attribute = "y", Value = value });
-                IsPathDirty = true;
-            }
+        	get { return _y; }
+        	set
+        	{
+        		if(_y != value)
+        		{
+        			_y = value;
+        			OnAttributeChanged(new AttributeEventArgs{ Attribute = "y", Value = value });
+        			IsPathDirty = true;
+        		}
+        	}
         }
 
         /// <summary>
@@ -76,13 +82,16 @@ namespace Svg
         [SvgAttribute("width")]
         public SvgUnit Width
         {
-            get { return _width; }
-            set
-            {
-                _width = value;
-                OnAttributeChanged(new AttributeEventArgs{ Attribute = "width", Value = value });
-                IsPathDirty = true;
-            }
+        	get { return _width; }
+        	set
+        	{
+        		if(_width != value)
+        		{
+        			_width = value;
+        			OnAttributeChanged(new AttributeEventArgs{ Attribute = "width", Value = value });
+        			IsPathDirty = true;
+        		}
+        	}
         }
 
         /// <summary>
@@ -91,13 +100,16 @@ namespace Svg
         [SvgAttribute("height")]
         public SvgUnit Height
         {
-            get { return _height; }
-            set
-            {
-                _height = value;
-                OnAttributeChanged(new AttributeEventArgs{ Attribute = "height", Value = value });
-                IsPathDirty = true;
-            }
+        	get { return _height; }
+        	set
+        	{
+        		if(_height != value)
+        		{
+        			_height = value;
+        			OnAttributeChanged(new AttributeEventArgs{ Attribute = "height", Value = value });
+        			IsPathDirty = true;
+        		}
+        	}
         }
 
         /// <summary>
@@ -147,7 +159,13 @@ namespace Svg
         /// </summary>
         protected override bool RequiresSmoothRendering
         {
-            get { return (CornerRadiusX.Value > 0 || CornerRadiusY.Value > 0); }
+            get
+            {
+                if (base.RequiresSmoothRendering)
+                    return (CornerRadiusX.Value > 0 || CornerRadiusY.Value > 0);
+                else
+                    return false;
+            }
         }
 
         /// <summary>
@@ -156,107 +174,113 @@ namespace Svg
         /// <value>The bounds.</value>
         public override RectangleF Bounds
         {
-            get { return Path.GetBounds(); }
+            get { return Path(null).GetBounds(); }
         }
 
         /// <summary>
         /// Gets the <see cref="GraphicsPath"/> for this element.
         /// </summary>
-        public override GraphicsPath Path
+        public override GraphicsPath Path(ISvgRenderer renderer)
         {
-            get
+            if ((_path == null || IsPathDirty) && base.StrokeWidth > 0)
             {
-                if (_path == null || IsPathDirty)
+                var halfStrokeWidth = new SvgUnit(base.StrokeWidth / 2);
+
+                // If it is to render, don't need to consider stroke
+                if (renderer != null)
                 {
-                    // If the corners aren't to be rounded just create a rectangle
-                    if (CornerRadiusX.Value == 0.0f && CornerRadiusY.Value == 0.0f)
-                    {
-                        var rectangle = new RectangleF(Location.ToDeviceValue(),
-                            new SizeF(Width.ToDeviceValue(), Height.ToDeviceValue()));
-
-                        _path = new GraphicsPath();
-                        _path.StartFigure();
-                        _path.AddRectangle(rectangle);
-                        _path.CloseFigure();
-                    }
-                    else
-                    {
-                        _path = new GraphicsPath();
-                        var arcBounds = new RectangleF();
-                        var lineStart = new PointF();
-                        var lineEnd = new PointF();
-                        var width = Width.ToDeviceValue();
-                        var height = Height.ToDeviceValue();
-                        var rx = CornerRadiusX.ToDeviceValue() * 2;
-                        var ry = CornerRadiusY.ToDeviceValue() * 2;
-                        var location = Location.ToDeviceValue();
-
-                        // Start
-                        _path.StartFigure();
-
-                        // Add first arc
-                        arcBounds.Location = location;
-                        arcBounds.Width = rx;
-                        arcBounds.Height = ry;
-                        _path.AddArc(arcBounds, 180, 90);
-
-                        // Add first line
-                        lineStart.X = Math.Min(location.X + rx, location.X + width * 0.5f);
-                        lineStart.Y = location.Y;
-                        lineEnd.X = Math.Max(location.X + width - rx, location.X + width * 0.5f);
-                        lineEnd.Y = lineStart.Y;
-                        _path.AddLine(lineStart, lineEnd);
-
-                        // Add second arc
-                        arcBounds.Location = new PointF(location.X + width - rx, location.Y);
-                        _path.AddArc(arcBounds, 270, 90);
-
-                        // Add second line
-                        lineStart.X = location.X + width;
-                        lineStart.Y = Math.Min(location.Y + ry, location.Y + height * 0.5f);
-                        lineEnd.X = lineStart.X;
-                        lineEnd.Y = Math.Max(location.Y + height - ry, location.Y + height * 0.5f);
-                        _path.AddLine(lineStart, lineEnd);
-
-                        // Add third arc
-                        arcBounds.Location = new PointF(location.X + width - rx, location.Y + height - ry);
-                        _path.AddArc(arcBounds, 0, 90);
-
-                        // Add third line
-                        lineStart.X = Math.Max(location.X + width - rx, location.X + width * 0.5f);
-                        lineStart.Y = location.Y + height;
-                        lineEnd.X = Math.Min(location.X + rx, location.X + width * 0.5f);
-                        lineEnd.Y = lineStart.Y;
-                        _path.AddLine(lineStart, lineEnd);
-
-                        // Add third arc
-                        arcBounds.Location = new PointF(location.X, location.Y + height - ry);
-                        _path.AddArc(arcBounds, 90, 90);
-
-                        // Add fourth line
-                        lineStart.X = location.X;
-                        lineStart.Y = Math.Max(location.Y + height - ry, location.Y + height * 0.5f);
-                        lineEnd.X = lineStart.X;
-                        lineEnd.Y = Math.Min(location.Y + ry, location.Y + height * 0.5f);
-                        _path.AddLine(lineStart, lineEnd);
-
-                        // Close
-                        _path.CloseFigure();
-                    }
-                    IsPathDirty = false;
+                  halfStrokeWidth = 0;
+                  this.IsPathDirty = false;
                 }
-                return _path;
+
+                // If the corners aren't to be rounded just create a rectangle
+                if (CornerRadiusX.Value == 0.0f && CornerRadiusY.Value == 0.0f)
+                {
+                  // Starting location which take consideration of stroke width
+                  SvgPoint strokedLocation = new SvgPoint(Location.X - halfStrokeWidth, Location.Y - halfStrokeWidth);
+
+                  var width = this.Width.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this) + halfStrokeWidth;
+                  var height = this.Height.ToDeviceValue(renderer, UnitRenderingType.Vertical, this) + halfStrokeWidth;
+                  
+                  var rectangle = new RectangleF(strokedLocation.ToDeviceValue(renderer, this), new SizeF(width, height));
+
+                    _path = new GraphicsPath();
+                    _path.StartFigure();
+                    _path.AddRectangle(rectangle);
+                    _path.CloseFigure();
+                }
+                else
+                {
+                    _path = new GraphicsPath();
+                    var arcBounds = new RectangleF();
+                    var lineStart = new PointF();
+                    var lineEnd = new PointF();
+                    var width = Width.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this);
+                    var height = Height.ToDeviceValue(renderer, UnitRenderingType.Vertical, this);
+                    var rx = Math.Min(CornerRadiusX.ToDeviceValue(renderer, UnitRenderingType.Horizontal, this) * 2, width);
+                    var ry = Math.Min(CornerRadiusY.ToDeviceValue(renderer, UnitRenderingType.Vertical, this) * 2, height);
+                    var location = Location.ToDeviceValue(renderer, this);
+
+                    // Start
+                    _path.StartFigure();
+
+                    // Add first arc
+                    arcBounds.Location = location;
+                    arcBounds.Width = rx;
+                    arcBounds.Height = ry;
+                    _path.AddArc(arcBounds, 180, 90);
+
+                    // Add first line
+                    lineStart.X = Math.Min(location.X + rx, location.X + width * 0.5f);
+                    lineStart.Y = location.Y;
+                    lineEnd.X = Math.Max(location.X + width - rx, location.X + width * 0.5f);
+                    lineEnd.Y = lineStart.Y;
+                    _path.AddLine(lineStart, lineEnd);
+
+                    // Add second arc
+                    arcBounds.Location = new PointF(location.X + width - rx, location.Y);
+                    _path.AddArc(arcBounds, 270, 90);
+
+                    // Add second line
+                    lineStart.X = location.X + width;
+                    lineStart.Y = Math.Min(location.Y + ry, location.Y + height * 0.5f);
+                    lineEnd.X = lineStart.X;
+                    lineEnd.Y = Math.Max(location.Y + height - ry, location.Y + height * 0.5f);
+                    _path.AddLine(lineStart, lineEnd);
+
+                    // Add third arc
+                    arcBounds.Location = new PointF(location.X + width - rx, location.Y + height - ry);
+                    _path.AddArc(arcBounds, 0, 90);
+
+                    // Add third line
+                    lineStart.X = Math.Max(location.X + width - rx, location.X + width * 0.5f);
+                    lineStart.Y = location.Y + height;
+                    lineEnd.X = Math.Min(location.X + rx, location.X + width * 0.5f);
+                    lineEnd.Y = lineStart.Y;
+                    _path.AddLine(lineStart, lineEnd);
+
+                    // Add third arc
+                    arcBounds.Location = new PointF(location.X, location.Y + height - ry);
+                    _path.AddArc(arcBounds, 90, 90);
+
+                    // Add fourth line
+                    lineStart.X = location.X;
+                    lineStart.Y = Math.Max(location.Y + height - ry, location.Y + height * 0.5f);
+                    lineEnd.X = lineStart.X;
+                    lineEnd.Y = Math.Min(location.Y + ry, location.Y + height * 0.5f);
+                    _path.AddLine(lineStart, lineEnd);
+
+                    // Close
+                    _path.CloseFigure();
+                }
             }
-            protected set
-            {
-                _path = value;
-            }
+            return _path;
         }
 
         /// <summary>
         /// Renders the <see cref="SvgElement"/> and contents to the specified <see cref="Graphics"/> object.
         /// </summary>
-        protected override void Render(SvgRenderer renderer)
+        protected override void Render(ISvgRenderer renderer)
         {
             if (Width.Value > 0.0f && Height.Value > 0.0f)
             {

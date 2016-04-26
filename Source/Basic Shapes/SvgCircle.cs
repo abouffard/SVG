@@ -36,27 +36,43 @@ namespace Svg
             get { return this._centerX; }
             set
             {
-                this._centerX = value;
-                this.IsPathDirty = true;
+            	if(_centerX != value)
+            	{
+            		this._centerX = value;
+            		this.IsPathDirty = true;
+            		OnAttributeChanged(new AttributeEventArgs{ Attribute = "cx", Value = value });
+            	}
             }
         }
 
         [SvgAttribute("cy")]
         public virtual SvgUnit CenterY
         {
-            get { return this._centerY; }
-            set
-            {
-                this._centerY = value;
-                this.IsPathDirty = true;
-            }
+        	get { return this._centerY; }
+        	set
+        	{
+        		if(_centerY != value)
+        		{
+        			this._centerY = value;
+        			this.IsPathDirty = true;
+        			OnAttributeChanged(new AttributeEventArgs{ Attribute = "cy", Value = value });
+        		}
+        	}
         }
 
         [SvgAttribute("r")]
         public virtual SvgUnit Radius
         {
-            get { return this._radius; }
-            set { this._radius = value; this.IsPathDirty = true; }
+        	get { return this._radius; }
+        	set
+        	{
+        		if(_radius != value)
+        		{
+        			this._radius = value;
+        			this.IsPathDirty = true;
+        			OnAttributeChanged(new AttributeEventArgs{ Attribute = "r", Value = value });
+        		}
+        	}
         }
 
         /// <summary>
@@ -65,48 +81,41 @@ namespace Svg
         /// <value>The rectangular bounds of the circle.</value>
         public override RectangleF Bounds
         {
-            get { return this.Path.GetBounds(); }
-        }
-
-        /// <summary>
-        /// Gets a value indicating whether the circle requires anti-aliasing when being rendered.
-        /// </summary>
-        /// <value>
-        /// 	<c>true</c> if the circle requires anti-aliasing; otherwise, <c>false</c>.
-        /// </value>
-        protected override bool RequiresSmoothRendering
-        {
-            get { return true; }
+            get { return this.Path(null).GetBounds(); }
         }
 
         /// <summary>
         /// Gets the <see cref="GraphicsPath"/> representing this element.
         /// </summary>
-        public override GraphicsPath Path
+        public override GraphicsPath Path(ISvgRenderer renderer)
         {
-            get
+            if ((this._path == null || this.IsPathDirty)	&& base.StrokeWidth > 0)
             {
-                if (this._path == null || this.IsPathDirty)
-                {
-                    _path = new GraphicsPath();
-                    _path.StartFigure();
-                    _path.AddEllipse(this.Center.ToDeviceValue().X - this.Radius.ToDeviceValue(), this.Center.ToDeviceValue().Y - this.Radius.ToDeviceValue(), 2 * this.Radius.ToDeviceValue(), 2 * this.Radius.ToDeviceValue());
-                    _path.CloseFigure();
-                    this.IsPathDirty = false;
-                }
-                return _path;
+							float halfStrokeWidth = base.StrokeWidth / 2;
+
+							// If it is to render, don't need to consider stroke width.
+							// i.e stroke width only to be considered when calculating boundary
+							if (renderer != null)
+							{
+								halfStrokeWidth = 0;
+								this.IsPathDirty = false;
+							}
+
+                _path = new GraphicsPath();
+                _path.StartFigure();
+								var center = this.Center.ToDeviceValue(renderer, this);
+								var radius = this.Radius.ToDeviceValue(renderer, UnitRenderingType.Other, this) + halfStrokeWidth;
+								_path.AddEllipse(center.X - radius, center.Y - radius, 2 * radius, 2 * radius);
+                _path.CloseFigure();
             }
-            protected set
-            {
-                _path = value;
-            }
+            return _path;
         }
 
         /// <summary>
         /// Renders the circle to the specified <see cref="Graphics"/> object.
         /// </summary>
         /// <param name="graphics">The graphics object.</param>
-        protected override void Render(SvgRenderer renderer)
+        protected override void Render(ISvgRenderer renderer)
         {
             // Don't draw if there is no radius set
             if (this.Radius.Value > 0.0f)
